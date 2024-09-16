@@ -165,7 +165,7 @@ class ClusterHandler:
             sampleDevi = data['Data'].std(ddof=1)
 
             # Handle prefix assignment
-            prefix = 'y' if is_target else column_name
+            prefix = column_name
             pdf_col = f'PDF_{prefix}_{clsNo}'
 
             temp[pdf_col] = temp["Data"].apply(lambda x: self._membership(x, sampleMean, sampleDevi))
@@ -214,3 +214,21 @@ class ClusterHandler:
         axs[-1][-1].set_title('Cluster Distribution for t-{}'.format(self.yTarget), fontsize = 30)
         plt.tight_layout()    
         plt.show()
+
+    def deFuzzify(self, pred: np.array, target_col: str) -> np.array:
+        """
+        defuzzification uising weighted average technique
+        transform fuzzy memberships -> log returns
+        """
+        centers = [dic['mean'] for dic in self.y_cluster_stats[target_col].values()]
+        stds = [dic['std'] for dic in self.y_cluster_stats[target_col].values()]
+    
+        centers = np.tile(centers, (pred.shape[0], 1))
+        pred = np.nan_to_num(pred, nan=0, posinf=0, neginf=0)
+    
+        denominator = pred.sum(axis=1, keepdims=True)
+        numerator = (pred * centers).sum(axis = 1, keepdims=True)
+        result = numerator / denominator
+        result = np.squeeze(result)
+    
+        return result
