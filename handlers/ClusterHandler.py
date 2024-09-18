@@ -137,6 +137,9 @@ class ClusterHandler:
         """Calculate mean and std for each cluster."""
         for cluster_id, cluster_data in df.groupby(cluster_col):
             df.loc[df[cluster_col] == cluster_id, 'Cluster_Mean'] = cluster_data['Data'].mean()
+
+            std = cluster_data['Data'].std(ddof=1)
+            if std == 0: std = 1
             df.loc[df[cluster_col] == cluster_id, 'Cluster_Std'] = cluster_data['Data'].std(ddof=1)
 
     def _merge_clusters(self, df, cluster_col):
@@ -149,6 +152,7 @@ class ClusterHandler:
                 df.loc[df[cluster_col] == rCls, cluster_col] = lCls
                 newMean = df[df[cluster_col] == lCls]['Data'].mean()
                 newStd = df[df[cluster_col] == lCls]['Data'].std()
+                if newStd == 0: newStd = 1
                 df.loc[df[cluster_col] == lCls, 'Cluster_Mean'] = newMean
                 df.loc[df[cluster_col] == lCls, 'Cluster_Std'] = newStd
                 clusterNo.pop(j)
@@ -163,6 +167,8 @@ class ClusterHandler:
             _, data = cluster_data
             sampleMean = data['Data'].mean()
             sampleDevi = data['Data'].std(ddof=1)
+
+            if sampleDevi == 0: sampleDevi = 1
 
             # Handle prefix assignment
             prefix = column_name

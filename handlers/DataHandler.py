@@ -85,8 +85,8 @@ class DataHandler:
             pd.to_pickle({'features': test_features, 'targets': test_targets}, test_file_path)
 
 
-        train_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
-        test_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
+        # train_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
+        # test_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
 
         train_features = DataHandler._replace_inf_nan_with_rolling_mean(train_features)
         test_features = DataHandler._replace_inf_nan_with_rolling_mean(test_features)
