@@ -4,8 +4,59 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import logging
+import sys
+
+# Configure logging
+def setup_logger(name):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+
+    # Check if the logger already has handlers to avoid duplicate logging
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
+logger = setup_logger(__name__)
 
 class DataHandler:
+
+    @staticmethod
+    def getTickers(symbols:list[str], startTrain: str, endTrain: str, startTest: str, endTest: str, num_horizons: int):
+        """Get the data for the given symbols, combine data into a single dataframe and return the train and test data."""
+        train_features = []
+        train_targets = []
+        test_features = []
+        test_targets = []
+
+        for symbol in symbols:
+            train_f, train_t, test_f, test_t = DataHandler.getData(symbol, startTrain, endTrain, startTest, endTest, num_horizons)
+            train_f['symbol'] = symbol
+            train_t['symbol'] = symbol
+            test_f['symbol'] = symbol
+            test_t['symbol'] = symbol
+            train_features.append(train_f)
+            train_targets.append(train_t)
+            test_features.append(test_f)
+            test_targets.append(test_t)
+
+        train_features = pd.concat(train_features)
+        train_targets = pd.concat(train_targets)
+        test_features = pd.concat(test_features)
+        test_targets = pd.concat(test_targets)
+
+        train_features.sort_index(inplace=True)
+        train_targets.sort_index(inplace=True)
+        test_features.sort_index(inplace=True)
+        test_targets.sort_index(inplace=True)
+
+        return train_features, train_targets, test_features, test_targets
+
     @staticmethod
     def getData(ticker_symbol, startTrain, endTrain, startTest, endTest, num_horizons):
         data_dir = "./data/main"
@@ -15,13 +66,17 @@ class DataHandler:
         test_file_path = f"{data_dir}/{ticker_symbol}_test_preprocessed_{num_horizons}.pkl"
         
         if os.path.exists(train_file_path) and os.path.exists(test_file_path):
+            logger.info(f"Loading data for {ticker_symbol} from cache")
             train_data = pd.read_pickle(train_file_path)
             test_data = pd.read_pickle(test_file_path)
             train_features, train_targets = train_data['features'], train_data['targets']
             test_features, test_targets = test_data['features'], test_data['targets']
         else:
+            logger.info(f"Downloading data for {ticker_symbol}")
             train_data = yf.download(ticker_symbol, start=startTrain, end=endTrain, auto_adjust=True)
             test_data = yf.download(ticker_symbol, start=startTest, end=endTest, auto_adjust=True)
+            if train_data.empty or test_data.empty:
+                raise ValueError(f"No data found for {ticker_symbol}")
 
             train_features, train_targets = DataHandler._preprocess(train_data, num_horizons)
             test_features, test_targets = DataHandler._preprocess(test_data, num_horizons)
@@ -29,6 +84,8 @@ class DataHandler:
             pd.to_pickle({'features': train_features, 'targets': train_targets}, train_file_path)
             pd.to_pickle({'features': test_features, 'targets': test_targets}, test_file_path)
         
+        train_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
+        test_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
         return train_features, train_targets, test_features, test_targets
 
     @staticmethod
