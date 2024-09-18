@@ -1,9 +1,20 @@
 import random
 import logging
 import sys
+import numpy as np
+from typing import List, Dict, Tuple, Callable, Any
 
 # Configure logging
-def setup_logger(name):
+def setup_logger(name: str) -> logging.Logger:
+    """
+    Set up and configure a logger with the given name.
+
+    Args:
+        name (str): The name of the logger.
+
+    Returns:
+        logging.Logger: Configured logger object.
+    """
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
 
@@ -19,21 +30,38 @@ def setup_logger(name):
 
 logger = setup_logger(__name__)
 
-def hyperparameters():
-    parameters = {
-        'num_heads': [1, 2, 3, 4],
-        'feed_forward_dim': [32, 64, 128],
-        'num_transformer_blocks': [1, 2, 3],
-        'mlp_units': [64, 128, 256, 512],
-        'dropout_rate': [0.05, 0.1, 0.2],
-        'learning_rate': [0.00005, 0.00001, 0.000005],
-        'num_mlp_layers': [3, 5, 8],
-        'num_epochs': [25, 50, 100, 500],
-        'activation_function': [0, 1]  # 0 for sigmoid, 1 for softmax
-    }
+def hyperparameters(parameters=None) -> Dict[str, List[Any]]:
+    """
+    Define the hyperparameters and their possible values for the genetic algorithm.
+
+    Returns:
+        Dict[str, List[Any]]: A dictionary of hyperparameters and their possible values.
+    """
+    if parameters is None:
+        parameters = {
+            'num_heads': [1, 2, 3, 4],
+            'feed_forward_dim': [32, 64, 128],
+            'num_transformer_blocks': [1, 2, 3],
+            'mlp_units': [64, 128, 256, 512],
+            'dropout_rate': [0.05, 0.1, 0.2],
+            'learning_rate': [0.00005, 0.00001, 0.000005],
+            'num_mlp_layers': [3, 5, 8],
+            'num_epochs': [25, 50, 100, 500],
+            'activation_function': [0, 1]  # 0 for sigmoid, 1 for softmax
+        }
     return parameters
 
-def generate_population(size: int):
+def generate_population(size: int) -> List[Dict[str, Any]]:
+    """
+    Generate a population of unique chromosomes.
+
+    Args:
+        size (int): The desired size of the population.
+
+    Returns:
+        List[Dict[str, Any]]: A list of chromosomes, where each chromosome is a dictionary
+        of hyperparameter names and their randomly chosen values.
+    """
     parameters = hyperparameters()
     population = []
     
@@ -43,21 +71,52 @@ def generate_population(size: int):
             population.append(chromosome)
     return population
 
-def crossover(parent1, parent2):
+def crossover(parent1: Dict[str, Any], parent2: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Perform crossover between two parent chromosomes to create a child chromosome.
+
+    Args:
+        parent1 (Dict[str, Any]): The first parent chromosome.
+        parent2 (Dict[str, Any]): The second parent chromosome.
+
+    Returns:
+        Dict[str, Any]: A new child chromosome created from the parents.
+    """
     child = {}
     for key in parent1.keys():
         child[key] = random.choice([parent1[key], parent2[key]])
     return child
 
-def mutation(chromosome, mutation_rate=0.1):
+def mutation(chromosome: Dict[str, Any], mutation_rate: float = 0.1) -> Dict[str, Any]:
+    """
+    Apply mutation to a chromosome based on the given mutation rate.
+
+    Args:
+        chromosome (Dict[str, Any]): The chromosome to mutate.
+        mutation_rate (float, optional): The probability of mutating each gene. Defaults to 0.1.
+
+    Returns:
+        Dict[str, Any]: The mutated chromosome.
+    """
     parameters = hyperparameters()
     for key in chromosome.keys():
         if random.random() < mutation_rate:
             chromosome[key] = random.choice(parameters[key])
     return chromosome
 
-def fitness(train_func, chromosome, X, y, t_X, t_y, crisp_t_y):
-    _, r2, _ = train_func(
+def fitness(train_func: Callable, chromosome: Dict[str, Any], X: np.array, y: np.array, t_X: np.array, t_y: np.array, crisp_t_y: np.array) -> float:
+    """
+    Calculate the fitness of a chromosome using the provided training function.
+
+    Args:
+        train_func (Callable): The training function to evaluate the chromosome.
+        chromosome (Dict[str, Any]): The chromosome to evaluate.
+        X, y, t_X, t_y, crisp_t_y: Data for training and evaluation.
+
+    Returns:
+        float: The fitness score (R2 score) of the chromosome.
+    """
+    model, r2, pred = train_func(
         X, y, t_X, t_y, crisp_t_y,
         num_heads=chromosome['num_heads'],
         feed_forward_dim=chromosome['feed_forward_dim'],
@@ -71,7 +130,21 @@ def fitness(train_func, chromosome, X, y, t_X, t_y, crisp_t_y):
     )
     return r2
 
-def genetic_algorithm(train_func, X, y, t_X, t_y, crisp_t_y, population_size=20, generations=10, elite_size=2):
+def genetic_algorithm(train_func: Callable, X: np.array, y: np.array, t_X: np.array, t_y: np.array, crisp_t_y: Any, 
+                      population_size: int = 20, generations: int = 10, elite_size: int = 2) -> Tuple[Dict[str, Any], float]:
+    """
+    Perform the genetic algorithm to find the best hyperparameters.
+
+    Args:
+        train_func (Callable): The training function to evaluate chromosomes.
+        X, y, t_X, t_y, crisp_t_y: Data for training and evaluation.
+        population_size (int, optional): The size of the population. Defaults to 20.
+        generations (int, optional): The number of generations to evolve. Defaults to 10.
+        elite_size (int, optional): The number of top performers to keep in each generation. Defaults to 2.
+
+    Returns:
+        Tuple[Dict[str, Any], float]: The best chromosome and its fitness score.
+    """
     population = generate_population(population_size)
     
     for generation in range(generations):
@@ -99,10 +172,8 @@ def genetic_algorithm(train_func, X, y, t_X, t_y, crisp_t_y, population_size=20,
     
     return fitness_scores[0]
 
-
-
 if __name__ == "__main__":
-    # Usage - this doesn't work as is, you need to replace the train_func with your own function in notebook
+    # Usage example - this doesn't work as is, you need to replace the train_func with your own function in notebook
     best_chromosome, best_fitness = genetic_algorithm(X, y, t_X, t_y, crisp_t_y)
     print("Best hyperparameters:", best_chromosome)
     print("Best R2 score:", best_fitness)
