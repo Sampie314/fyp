@@ -1,19 +1,4 @@
 import numpy as np
-import pandas as pd
-
-from sklearn.neighbors import KernelDensity
-from matplotlib.pyplot import plot
-from scipy.signal import argrelextrema
-import torch
-import torch.nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset, random_split
-import math
-from sklearn.metrics import r2_score
-from torch.nn import TransformerEncoder, TransformerEncoderLayer
-
-
-
 
 def padData(X, X_test, padDim):
     zeros_array = np.zeros((X.shape[0], padDim))
