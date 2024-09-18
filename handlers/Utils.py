@@ -1,4 +1,5 @@
 import numpy as np
+import plotly.graph_objects as go
 
 def padData(X, X_test, padDim):
     zeros_array = np.zeros((X.shape[0], padDim))
@@ -58,3 +59,48 @@ def custom_r2_score(y_true, y_pred):
     custom_r2 = 1 - (ss_res / ss_tot)
 
     return custom_r2
+
+def visualize_predictions_vs_target(predictions, targets):
+    # Calculate residuals (difference between predictions and targets)
+    residuals = predictions - targets
+
+    # Create x-axis (index for plotting)
+    x = np.arange(len(predictions))
+
+    # Create line plot for predictions and targets
+    fig = go.Figure()
+
+    # Plot targets
+    fig.add_trace(go.Scatter(x=x, y=targets, mode='lines', name='Targets', line=dict(color='blue')))
+    
+    # Plot predictions
+    fig.add_trace(go.Scatter(x=x, y=predictions, mode='lines', name='Predictions', line=dict(color='red')))
+
+    # Add title and labels
+    fig.update_layout(
+        title='Predictions vs Targets',
+        xaxis_title='Index',
+        yaxis_title='Values',
+        legend_title='Legend',
+        height=600
+    )
+
+    # Show plot
+    fig.show()
+
+    # Residuals plot (Difference between predictions and targets)
+    fig_residuals = go.Figure()
+
+    # Plot residuals
+    fig_residuals.add_trace(go.Scatter(x=x, y=residuals, mode='lines', name='Residuals', line=dict(color='green')))
+
+    # Add title and labels for residuals plot
+    fig_residuals.update_layout(
+        title='Residuals (Predictions - Targets)',
+        xaxis_title='Index',
+        yaxis_title='Residuals',
+        height=600
+    )
+
+    # Show residuals plot
+    fig_residuals.show()
