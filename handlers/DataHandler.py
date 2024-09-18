@@ -83,10 +83,46 @@ class DataHandler:
         
             pd.to_pickle({'features': train_features, 'targets': train_targets}, train_file_path)
             pd.to_pickle({'features': test_features, 'targets': test_targets}, test_file_path)
-        
+
+
         train_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
         test_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
+
+        train_features = DataHandler._replace_inf_nan_with_rolling_mean(train_features)
+        test_features = DataHandler._replace_inf_nan_with_rolling_mean(test_features)
+
+        # Handle NaN values in TRAIN
+        train_features.dropna(inplace=True)
+        train_targets.dropna(inplace=True)
+
+        # Align the indices of df and y
+        common_index = train_features.index.intersection(train_targets.index)
+        train_features = train_features.loc[common_index]
+        train_targets = train_targets.loc[common_index]
+
+        # Handle NaN values in TEST
+        test_features.dropna(inplace=True)
+        test_targets.dropna(inplace=True)
+
+        # Align the indices of df and y
+        common_index = test_features.index.intersection(test_targets.index)
+        test_features = test_features.loc[common_index]
+        test_targets = test_targets.loc[common_index]
+
         return train_features, train_targets, test_features, test_targets
+
+    @staticmethod
+    def _replace_inf_nan_with_rolling_mean(df, window=10):
+        df_cleaned = df.copy()
+        numeric_columns = df_cleaned.select_dtypes(include=[np.number]).columns
+        
+        for col in numeric_columns:
+            rolling_mean = df_cleaned[col].rolling(window=window, min_periods=1).mean()
+            invalid_mask = np.isinf(df_cleaned[col]) | np.isnan(df_cleaned[col])
+
+            df_cleaned.loc[invalid_mask, col] = rolling_mean[invalid_mask]
+        
+        return df_cleaned
 
     @staticmethod
     def _preprocess(df, num_horizons):
