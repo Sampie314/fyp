@@ -47,7 +47,8 @@ def hyperparameters(parameters=None) -> Dict[str, List[Any]]:
             'learning_rate': [0.00005, 0.00001, 0.000005],
             'num_mlp_layers': [3, 5, 8],
             'num_epochs': [25, 50, 100, 500],
-            'activation_function': [0, 1]  # 0 for sigmoid, 1 for softmax
+            'activation_function': [0, 1],  # 0 for sigmoid, 1 for softmax
+            'batch_size': [128, 256, 512, 1024, 2048]
         }
     return parameters
 
@@ -126,7 +127,8 @@ def fitness(train_func: Callable, chromosome: Dict[str, Any], X: np.array, y: np
         learning_rate=chromosome['learning_rate'],
         num_mlp_layers=chromosome['num_mlp_layers'],
         num_epochs=chromosome['num_epochs'],
-        activation_function=chromosome['activation_function']
+        activation_function=chromosome['activation_function'],
+        batch_size=chromosome['batch_size']
     )
     return r2
 
