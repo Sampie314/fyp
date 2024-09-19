@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.neighbors import KernelDensity
 from scipy.signal import argrelextrema
-from AbstractClusterHandler import AbstractClusterHandler
+from .AbstractClusterHandler import AbstractClusterHandler
 import logging
 import sys
 
