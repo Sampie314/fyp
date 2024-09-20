@@ -32,11 +32,6 @@ class AbstractClusterHandler(ABC):
         """Cluster a single column of data."""
         pass
 
-    @abstractmethod
-    def _calculate_cluster_stats(self, df, cluster_col):
-        """Calculate mean and std for each cluster."""
-        pass
-
     def _merge_clusters(self, df, cluster_col):
         """Merge small clusters."""
         clusterNo = sorted(df[cluster_col].unique())
@@ -47,7 +42,7 @@ class AbstractClusterHandler(ABC):
                 df.loc[df[cluster_col] == rCls, cluster_col] = lCls
                 newMean = df[df[cluster_col] == lCls]['Data'].mean()
                 newStd = df[df[cluster_col] == lCls]['Data'].std()
-                if newStd == 0: newStd = 1
+                if newStd == 0: newStd = 1e-6
                 df.loc[df[cluster_col] == lCls, 'Cluster_Mean'] = newMean
                 df.loc[df[cluster_col] == lCls, 'Cluster_Std'] = newStd
                 clusterNo.pop(j)
@@ -63,7 +58,7 @@ class AbstractClusterHandler(ABC):
             sampleMean = data['Data'].mean()
             sampleDevi = data['Data'].std(ddof=1)
 
-            if sampleDevi == 0: sampleDevi = 1
+            if sampleDevi == 0: sampleDevi = 1e-6
 
             # Handle prefix assignment
             prefix = column_name
@@ -78,7 +73,7 @@ class AbstractClusterHandler(ABC):
 
     def _membership(self, x, sampleMean, sampleDevi):
         """Calculate Gaussian membership."""
-        return math.exp(-((x - sampleMean)**2 / (2 * (sampleDevi**2))))
+        return np.exp(-((x - sampleMean)**2 / (2 * (max(sampleDevi, 1e-6)**2))))
 
     @staticmethod
     def clusterGraph(cluster_stats: dict):
@@ -107,9 +102,11 @@ class AbstractClusterHandler(ABC):
             yaxis_title="Density",
             showlegend=True
         )
-
+        
         # Show the figure
         fig.show()
+
+        return fig
 
     def deFuzzify(self, pred: np.array, target_col: str) -> np.array:
         """
@@ -140,7 +137,7 @@ class AbstractClusterHandler(ABC):
         """Calculate mean and std for each cluster."""
         for cluster_id, cluster_data in df.groupby(cluster_col):
             df.loc[df[cluster_col] == cluster_id, 'Cluster_Mean'] = cluster_data['Data'].mean()
-
+            
             std = cluster_data['Data'].std(ddof=1)
-            if std == 0: std = 1
-            df.loc[df[cluster_col] == cluster_id, 'Cluster_Std'] = cluster_data['Data'].std(ddof=1)
+            if std == 0: std = 1e-6
+            df.loc[df[cluster_col] == cluster_id, 'Cluster_Std'] = std
