@@ -132,7 +132,7 @@ class AgglomerativeHandler(AbstractClusterHandler):
     def _find_optimal_clusters(self, data: np.ndarray) -> int:
         """Find the optimal number of clusters using silhouette score."""
         silhouette_scores = []
-        n_clusters_range = range(2, min(self.max_clusters + 1, len(data)))
+        n_clusters_range = range(3, min(self.max_clusters + 1, len(data)))
 
         for n_clusters in n_clusters_range:
             agg = AgglomerativeClustering(n_clusters=n_clusters, linkage=self.linkage, metric=self.metric)

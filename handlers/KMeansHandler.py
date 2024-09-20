@@ -121,7 +121,7 @@ class KMeansHandler(AbstractClusterHandler):
         """Find the optimal number of clusters using the Elbow Method and Silhouette Score."""
         inertias = []
         silhouette_scores = []
-        n_clusters_range = range(2, min(self.max_clusters + 1, len(data)))
+        n_clusters_range = range(3, min(self.max_clusters + 1, len(data)))
 
         for n_clusters in n_clusters_range:
             kmeans = KMeans(n_clusters=n_clusters, random_state=42)
