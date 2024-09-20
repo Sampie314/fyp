@@ -43,10 +43,10 @@ def hyperparameters(parameters=None) -> Dict[str, List[Any]]:
             'feed_forward_dim': [32, 64, 128],
             'num_transformer_blocks': [1, 2, 3],
             'mlp_units': [64, 128, 256, 512],
-            'dropout_rate': [0.05, 0.1, 0.2],
-            'learning_rate': [0.00005, 0.00001, 0.000005],
+            'dropout_rate': [0.01, 0.05, 0.1, 0.2],
+            'learning_rate': [0.001, 0.0001, 0.00001, 0.000005],
             'num_mlp_layers': [3, 5, 8],
-            'num_epochs': [25, 50, 100, 500],
+            'num_epochs': [25, 50, 100, 200, 500],
             'activation_function': [0, 1],  # 0 for sigmoid, 1 for softmax
             'batch_size': [128, 256, 512, 1024, 2048]
         }
