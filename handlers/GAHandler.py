@@ -133,7 +133,7 @@ def fitness(train_func: Callable, chromosome: Dict[str, Any], X: np.array, y: np
     return r2
 
 def genetic_algorithm(train_func: Callable, X: np.array, y: np.array, t_X: np.array, t_y: np.array, crisp_t_y: Any, 
-                      population_size: int = 20, generations: int = 10, elite_size: int = 2) -> Tuple[Dict[str, Any], float]:
+                      population_size: int = 50, final_population_size: int = 5, generations: int = 10, elite_size: int = 2) -> Tuple[Dict[str, Any], float]:
     """
     Perform the genetic algorithm to find the best hyperparameters.
 
@@ -147,6 +147,10 @@ def genetic_algorithm(train_func: Callable, X: np.array, y: np.array, t_X: np.ar
     Returns:
         Tuple[Dict[str, Any], float]: The best chromosome and its fitness score.
     """
+    def calculate_population_size(generation: int) -> int:
+        """Calculate the population size for a given generation."""
+        return int(initial_population_size - (initial_population_size - final_population_size) * (generation / (generations - 1)))
+        
     population = generate_population(population_size)
     
     for generation in range(generations):
@@ -160,6 +164,7 @@ def genetic_algorithm(train_func: Callable, X: np.array, y: np.array, t_X: np.ar
         new_population = [chromosome for chromosome, _ in fitness_scores[:elite_size]]
         
         # Generate offspring
+        population_size = calculate_population_size(generation)
         while len(new_population) < population_size:
             parent1, parent2 = random.sample(population, 2)
             child = crossover(parent1, parent2)
