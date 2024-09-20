@@ -1,12 +1,14 @@
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.preprocessing import StandardScaler
+from scipy.cluster.hierarchy import dendrogram
 from sklearn.metrics import silhouette_score
 from .AbstractClusterHandler import AbstractClusterHandler
 import logging
 import sys
 from typing import Tuple
-
+import matplotlib.pyplot as plt
 
 # Configure logging
 def setup_logger(name):
@@ -25,10 +27,11 @@ def setup_logger(name):
 
 logger = setup_logger(__name__)
 
-class KMeansHandler(AbstractClusterHandler):
-    """KMeans clustering handler with automatic cluster number selection using elbow method and Silhouette score."""
-    def __init__(self, train_X, train_y, test_X, test_y, max_clusters=20, mergeCluster=True, plt=False, pltNo=0):
+class WardHierarchicalHandler(AbstractClusterHandler):
+    """Ward Hierarchical clustering handler with automatic cluster number selection."""
+    def __init__(self, train_X, train_y, test_X, test_y, n_clusters=None, max_clusters=10, mergeCluster=True, plt=False, pltNo=0):
         super().__init__(train_X, train_y, test_X, test_y, mergeCluster, plt, pltNo)
+        self.n_clusters = n_clusters
         self.max_clusters = max_clusters
 
     def cluster(self):
@@ -88,17 +91,23 @@ class KMeansHandler(AbstractClusterHandler):
         return temp, testTemp
 
     def _cluster_column(self, column_name, is_target=False):
-        """Cluster a single column of data using KMeans with automatic cluster number selection."""
+        """Cluster a single column of data using Ward Hierarchical clustering."""
         # Extract data
         spl = (self.train_y if is_target else self.train_X)[column_name].to_numpy().reshape(-1, 1)
         test_spl = (self.test_y if is_target else self.test_X)[column_name].to_numpy().reshape(-1, 1)
 
-        # Find the optimal number of clusters
-        n_clusters = self._find_optimal_clusters(spl)
+        # Standardize the data
+        # scaler = StandardScaler()
+        # spl_scaled = scaler.fit_transform(spl)
+        # test_spl_scaled = scaler.transform(test_spl)
 
-        # Perform KMeans clustering with the optimal number of clusters
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        cls1 = kmeans.fit_predict(spl)
+        # Find optimal number of clusters if not provided
+        if self.n_clusters is None:
+            self.n_clusters = self._find_optimal_clusters(spl)
+
+        # Perform Ward Hierarchical clustering
+        ward = AgglomerativeClustering(n_clusters=self.n_clusters, linkage='ward')
+        cls1 = ward.fit_predict(spl)
 
         # Create temporary DataFrames
         temp = pd.DataFrame({'Data': spl.reshape(-1), f'Cluster_{column_name}': cls1})
@@ -118,27 +127,49 @@ class KMeansHandler(AbstractClusterHandler):
         return temp, testTemp, clsDic
 
     def _find_optimal_clusters(self, data: np.ndarray) -> int:
-        """Find the optimal number of clusters using the Elbow Method and Silhouette Score."""
-        inertias = []
+        """Find the optimal number of clusters using silhouette score."""
         silhouette_scores = []
         n_clusters_range = range(2, min(self.max_clusters + 1, len(data)))
 
         for n_clusters in n_clusters_range:
-            kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-            kmeans.fit(data)
-            inertias.append(kmeans.inertia_)
-            if n_clusters > 2:
-                silhouette_scores.append(silhouette_score(data, kmeans.labels_))
+            ward = AgglomerativeClustering(n_clusters=n_clusters, linkage='ward')
+            cluster_labels = ward.fit_predict(data)
+            silhouette_avg = silhouette_score(data, cluster_labels)
+            silhouette_scores.append(silhouette_avg)
 
-        # Normalize inertias and silhouette scores
-        inertias = (inertias - np.min(inertias)) / (np.max(inertias) - np.min(inertias))
-        silhouette_scores = (silhouette_scores - np.min(silhouette_scores)) / (np.max(silhouette_scores) - np.min(silhouette_scores))
-
-        # Combine inertia and silhouette score
-        # We want low inertia (compact clusters) and high silhouette score (well-separated clusters)
-        combined_score = inertias[1:] - silhouette_scores
-
-        # Find the elbow point
-        optimal_clusters = np.argmin(combined_score) + 3  # +3 because we started from 2 clusters and silhouette from 3
+        # Find the number of clusters with the highest silhouette score
+        optimal_clusters = n_clusters_range[np.argmax(silhouette_scores)]
 
         return optimal_clusters
+
+    def plot_dendrogram(self, data, max_d=None):
+        """Plot the dendrogram for the hierarchical clustering."""
+        # Compute the dendrogram linkage
+        ward = AgglomerativeClustering(distance_threshold=0, n_clusters=None, linkage='ward')
+        ward.fit(data)
+
+        # Create linkage matrix
+        counts = np.zeros(ward.children_.shape[0])
+        n_samples = len(ward.labels_)
+        for i, merge in enumerate(ward.children_):
+            current_count = 0
+            for child_idx in merge:
+                if child_idx < n_samples:
+                    current_count += 1  # leaf node
+                else:
+                    current_count += counts[child_idx - n_samples]
+            counts[i] = current_count
+
+        linkage_matrix = np.column_stack([ward.children_, ward.distances_, counts]).astype(float)
+
+        # Plot the dendrogram
+        plt.figure(figsize=(10, 7))
+        dendrogram(linkage_matrix)
+        
+        if max_d:
+            plt.axhline(y=max_d, c='k')
+        
+        plt.title('Dendrogram')
+        plt.xlabel('Sample index')
+        plt.ylabel('Distance')
+        plt.show()
