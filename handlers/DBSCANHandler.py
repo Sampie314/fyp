@@ -142,7 +142,7 @@ class DBSCANHandler(AbstractClusterHandler):
 
         # Set min_samples based on data size, but ensure it's not too large
         min_samples = max(int(0.01 * len(data)), 3)
-        min_samples = min(min_samples, 20)  # Cap at 20 to avoid too restrictive clustering
+        min_samples = min(min_samples, 10)  # Cap at 10 to avoid too restrictive clustering
 
         return eps, min_samples
     
