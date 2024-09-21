@@ -60,7 +60,7 @@ class AbstractClusterHandler(ABC):
             sampleMean = data['Data'].mean()
             sampleDevi = data['Data'].std(ddof=1)
 
-            if sampleDevi == 0: sampleDevi = 1
+            if sampleDevi == 0: sampleDevi = 1e-6
 
             # Handle prefix assignment
             prefix = column_name
