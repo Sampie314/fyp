@@ -1,15 +1,11 @@
 import numpy as np
 import pandas as pd
-
-from sklearn.cluster import DBSCAN
+from sklearn.cluster import HDBSCAN
 from sklearn.preprocessing import StandardScaler
 from .AbstractClusterHandler import AbstractClusterHandler
 import logging
 import sys
-from typing import Tuple
-from scipy.stats import iqr
-
-
+import matplotlib.pyplot as plt
 
 # Configure logging
 def setup_logger(name):
@@ -28,12 +24,14 @@ def setup_logger(name):
 
 logger = setup_logger(__name__)
 
-class DBSCANHandler(AbstractClusterHandler):
-    """DBSCAN clustering handler with automatic parameter selection."""
-    def __init__(self, train_X, train_y, test_X, test_y, eps=None, min_samples=None, mergeCluster=True, plt=False, pltNo=0):
+class HDBSCANHandler(AbstractClusterHandler):
+    """HDBSCAN clustering handler."""
+    def __init__(self, train_X, train_y, test_X, test_y, 
+                 cluster_selection_method='eom',
+                 mergeCluster=True, plt=False, pltNo=0):
         super().__init__(train_X, train_y, test_X, test_y, mergeCluster, plt, pltNo)
-        self.eps = eps
-        self.min_samples = min_samples
+        self.cluster_selection_method = cluster_selection_method
+        self.min_cluster_size = int(0.01 * len(train_X))
 
     def cluster(self):
         """Main clustering method that processes all columns."""
@@ -92,7 +90,7 @@ class DBSCANHandler(AbstractClusterHandler):
         return temp, testTemp
 
     def _cluster_column(self, column_name, is_target=False):
-        """Cluster a single column of data using DBSCAN with automatic parameter selection if not provided."""
+        """Cluster a single column of data using HDBSCAN."""
         # Extract data
         spl = (self.train_y if is_target else self.train_X)[column_name].to_numpy().reshape(-1, 1)
         test_spl = (self.test_y if is_target else self.test_X)[column_name].to_numpy().reshape(-1, 1)
@@ -102,19 +100,13 @@ class DBSCANHandler(AbstractClusterHandler):
         # spl_scaled = scaler.fit_transform(spl)
         # test_spl_scaled = scaler.transform(test_spl)
 
-        # Find optimal parameters if not provided
-        if self.eps is None or self.min_samples is None:
-            self.eps, self.min_samples = self._find_optimal_parameters(spl)
+        # Perform HDBSCAN clustering
+        clusterer = HDBSCAN(min_cluster_size=self.min_cluster_size,
+                            cluster_selection_method=self.cluster_selection_method, n_jobs=-1)
+        cls1 = clusterer.fit_predict(spl)
 
-        # Perform DBSCAN clustering
-        dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples)
-        cls1 = dbscan.fit_predict(spl)
-
-        # Handle noise points (labeled as -1 by DBSCAN)
-        # cls1[cls1 == -1] = max(cls1) + 1
-
-        # Handle noise points and ensure a minimum number of clusters
-        cls1 = self._post_process_clusters(cls1, spl)
+        # Handle noise points (labeled as -1 by HDBSCAN)
+        cls1[cls1 == -1] = max(cls1) + 1
 
         # Create temporary DataFrames
         temp = pd.DataFrame({'Data': spl.reshape(-1), f'Cluster_{column_name}': cls1})
@@ -133,47 +125,16 @@ class DBSCANHandler(AbstractClusterHandler):
         logger.info(f"{column_name} had {len(clsDic)} clusters")
         return temp, testTemp, clsDic
 
-    def _find_optimal_parameters(self, data: np.ndarray) -> Tuple[float, int]:
-        """Find optimal eps and min_samples for DBSCAN using adaptive methods."""
-        # Calculate the interquartile range (IQR) of the data
-        data_iqr = iqr(data)
+    def plot_condensed_tree(self, data, column_name):
+        """Plot the condensed tree for HDBSCAN clustering."""
+        spl = data[column_name].to_numpy().reshape(-1, 1)
+        # scaler = StandardScaler()
+        # spl_scaled = scaler.fit_transform(spl)
 
-        # Set eps based on the IQR
-        eps = data_iqr / 2
+        clusterer = HDBSCAN(min_cluster_size=self.min_cluster_size,
+                            cluster_selection_method=self.cluster_selection_method, n_jobs=-1)
+        clusterer.fit(spl)
 
-        # Set min_samples based on data size, but ensure it's not too large
-        min_samples = max(int(0.01 * len(data)), 3)
-        min_samples = min(min_samples, 10)  # Cap at 10 to avoid too restrictive clustering
-
-        return eps, min_samples
-    
-    def _post_process_clusters(self, labels, data):
-        """Post-process cluster labels to handle noise and ensure a minimum number of clusters."""
-        # Handle noise points
-        noise_mask = labels == -1
-        if np.sum(noise_mask) > 0:
-            # Assign noise points to the nearest non-noise cluster
-            non_noise_clusters = np.unique(labels[~noise_mask])
-            for point in data[noise_mask]:
-                distances = [np.min(np.linalg.norm(data[labels == c] - point, axis=1)) for c in non_noise_clusters]
-                nearest_cluster = non_noise_clusters[np.argmin(distances)]
-                labels[noise_mask & (data == point).all(axis=1)] = nearest_cluster
-
-        # Ensure a minimum of 3 clusters
-        unique_clusters = np.unique(labels)
-        if len(unique_clusters) < 3:
-            # If we have fewer than 3 clusters, split the largest cluster
-            cluster_sizes = [np.sum(labels == c) for c in unique_clusters]
-            largest_cluster = unique_clusters[np.argmax(cluster_sizes)]
-            largest_cluster_data = data[labels == largest_cluster]
-            
-            # Use K-means to split the largest cluster
-            from sklearn.cluster import KMeans
-            kmeans = KMeans(n_clusters=2, random_state=42)
-            sub_labels = kmeans.fit_predict(largest_cluster_data)
-            
-            # Update the labels
-            new_cluster_label = labels.max() + 1
-            labels[labels == largest_cluster] = np.where(sub_labels == 0, largest_cluster, new_cluster_label)
-
-        return labels
+        clusterer.condensed_tree_.plot()
+        plt.title(f'Condensed Tree for {column_name}')
+        plt.show()

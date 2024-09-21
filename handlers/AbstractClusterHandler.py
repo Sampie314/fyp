@@ -1,7 +1,7 @@
 import numpy as np
-import math
 from abc import ABC, abstractmethod
 import plotly.graph_objects as go
+import pandas as pd
 
 class AbstractClusterHandler(ABC):
     def __init__(self, train_X, train_y, test_X, test_y, mergeCluster=True, plt=False, pltNo=0):
@@ -53,23 +53,31 @@ class AbstractClusterHandler(ABC):
     def _calculate_memberships(self, temp, testTemp, cluster_col, column_name):
         """Calculate membership functions for each cluster."""
         clsDic = {}
+        pdf_columns = []
+        
         for clsNo, cluster_data in enumerate(temp.groupby(cluster_col)):
             _, data = cluster_data
             sampleMean = data['Data'].mean()
             sampleDevi = data['Data'].std(ddof=1)
 
-            if sampleDevi == 0: sampleDevi = 1e-6
+            if sampleDevi == 0: sampleDevi = 1
 
             # Handle prefix assignment
             prefix = column_name
             pdf_col = f'PDF_{prefix}_{clsNo}'
+            pdf_columns.append(pdf_col)
 
             temp[pdf_col] = temp["Data"].apply(lambda x: self._membership(x, sampleMean, sampleDevi))
             testTemp[pdf_col] = testTemp["Data"].apply(lambda x: self._membership(x, sampleMean, sampleDevi))
 
             clsDic[clsNo] = {'mean': sampleMean, 'std': sampleDevi}
 
+        # Combine all PDF columns at once
+        temp = pd.concat([temp] + [temp[col] for col in pdf_columns], axis=1)
+        testTemp = pd.concat([testTemp] + [testTemp[col] for col in pdf_columns], axis=1)
+
         return clsDic
+
 
     def _membership(self, x, sampleMean, sampleDevi):
         """Calculate Gaussian membership."""
