@@ -106,7 +106,7 @@ class DBSCANHandler(AbstractClusterHandler):
             self.eps, self.min_samples = self._find_optimal_parameters(spl)
 
         # Perform DBSCAN clustering
-        dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples, n_jobs=-1)
+        dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples)
         cls1 = dbscan.fit_predict(spl)
 
         # Handle noise points (labeled as -1 by DBSCAN)
