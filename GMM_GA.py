@@ -21,8 +21,7 @@ from sklearn.metrics import r2_score
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 from handlers.DataHandler import DataHandler
-# from handlers.ClusterHandler import ClusterHandler
-from handlers.KDEHandler import KDEClusterHandler as ch
+from handlers.GaussianMixtureHandler import GaussianMixtureHandler as ch 
 from handlers import GAHandler
 from handlers import Utils
 
@@ -47,24 +46,14 @@ top10 = top100[:10]
 train_X, train_y, test_X, test_y = DataHandler.getTickers(top10, "1998-01-01", "2015-12-31", "2016-01-01", "2024-01-01", y_horizon)
 # train_X, train_y, test_X, test_y = DataHandler.getData("MS", "1998-01-01", "2015-12-31", "2016-01-01", "2023-01-01", y_horizon)
 
-train_X.drop(columns=['symbol'], inplace=True)
-train_y.drop(columns=['symbol'], inplace=True)
-test_X.drop(columns=['symbol'], inplace=True)
-test_y.drop(columns=['symbol'], inplace=True)
-
 stationary_cols = ['Open', 'High', 'Low', 'Close', 'Volume', 'notional_traded']
-train_X.drop(columns=stationary_cols, inplace=True)
-test_X.drop(columns=stationary_cols, inplace=True)
 
 # Create and use the Cluster object
-cls = ch(train_X, train_y, 
-                     test_X, test_y, 
-                     eps=0.00001, mergeCluster=True, splitLargest=True)
-clustered_train_X, clustered_train_y, clustered_test_X, clustered_test_y = cls.cluster()
+cls = ch(train_X.drop(columns=stationary_cols + ['symbol']), train_y.drop(columns=['symbol']), 
+                     test_X.drop(columns=stationary_cols + ['symbol']), test_y.drop(columns=['symbol']), 
+                     )
 
-# Access the clustering results
-feature_cluster_stats = cls.feature_cluster_stats
-y_cluster_stats = cls.y_cluster_stats
+clustered_train_X, clustered_train_y, clustered_test_X, clustered_test_y = cls.cluster()
 
 class TransformerModel(torch.nn.Module):
     def __init__(self, input_dim, output_dim, num_heads=10, ff_dim=32, num_transformer_blocks=4, mlp_units=256, dropout=0.25, noHiddenLayers=1, sigmoidOrSoftmax=0):
@@ -124,9 +113,6 @@ class TransformerModel(torch.nn.Module):
         output = self.fc(encoder_output)
         return output
     
-def increaseInstancesExtreme(train, thresholdToIncrease=0.03):
-    extraData = train[(train[f"Close_t+{yTarget}"]>thresholdToIncrease) | (train[f"Close_t+{yTarget}"]<-thresholdToIncrease)]
-    return pd.concat([train, extraData] ,axis = 0)
 
 def train_model(X, Y, X_test, Y_test, # fuzzified inputs
                    Y_test_raw, # crisp value
