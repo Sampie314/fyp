@@ -62,52 +62,37 @@ class DataHandler:
         data_dir = "./data/main"
         os.makedirs(data_dir, exist_ok=True)
         
-        train_file_path = f"{data_dir}/{ticker_symbol}_train_preprocessed_{num_horizons}.pkl"
-        test_file_path = f"{data_dir}/{ticker_symbol}_test_preprocessed_{num_horizons}.pkl"
-        
-        if os.path.exists(train_file_path) and os.path.exists(test_file_path):
+        file_path = f"{data_dir}/{ticker_symbol}_{startTrain}_{endTest}.pkl"
+
+        if os.path.exists(file_path):
             logger.info(f"Loading data for {ticker_symbol} from cache")
-            train_data = pd.read_pickle(train_file_path)
-            test_data = pd.read_pickle(test_file_path)
-            train_features, train_targets = train_data['features'], train_data['targets']
-            test_features, test_targets = test_data['features'], test_data['targets']
+            data = pd.read_pickle(file_path)
         else:
             logger.info(f"Downloading data for {ticker_symbol}")
-            train_data = yf.download(ticker_symbol, start=startTrain, end=endTrain, auto_adjust=True)
-            test_data = yf.download(ticker_symbol, start=startTest, end=endTest, auto_adjust=True)
-            if train_data.empty or test_data.empty:
+            data = yf.download(ticker_symbol, start=startTrain, end=endTest, auto_adjust=True)
+            if data.empty:
                 raise ValueError(f"No data found for {ticker_symbol}")
+            
+            data.to_pickle(file_path)
 
-            train_features, train_targets = DataHandler._preprocess(train_data, num_horizons)
-            test_features, test_targets = DataHandler._preprocess(test_data, num_horizons)
-        
-            pd.to_pickle({'features': train_features, 'targets': train_targets}, train_file_path)
-            pd.to_pickle({'features': test_features, 'targets': test_targets}, test_file_path)
-
+        features, targets = DataHandler._preprocess(data, num_horizons)
 
         # train_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
         # test_features.drop(columns=['Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
 
-        train_features = DataHandler._replace_inf_nan_with_rolling_mean(train_features)
-        test_features = DataHandler._replace_inf_nan_with_rolling_mean(test_features)
+        features = DataHandler._replace_inf_nan_with_rolling_mean(features)
 
         # Handle NaN values in TRAIN
-        train_features.dropna(inplace=True)
-        train_targets.dropna(inplace=True)
+        features.dropna(inplace=True)
+        targets.dropna(inplace=True)
 
         # Align the indices of df and y
-        common_index = train_features.index.intersection(train_targets.index)
-        train_features = train_features.loc[common_index]
-        train_targets = train_targets.loc[common_index]
+        common_index = features.index.intersection(targets.index)
+        features = features.loc[common_index]
+        targets = targets.loc[common_index]
 
-        # Handle NaN values in TEST
-        test_features.dropna(inplace=True)
-        test_targets.dropna(inplace=True)
-
-        # Align the indices of df and y
-        common_index = test_features.index.intersection(test_targets.index)
-        test_features = test_features.loc[common_index]
-        test_targets = test_targets.loc[common_index]
+        train_features, train_targets = features.loc[startTrain:endTrain], targets.loc[startTrain:endTrain]
+        test_features, test_targets = features.loc[startTest:endTest], targets.loc[startTest:endTest]
 
         return train_features, train_targets, test_features, test_targets
 
