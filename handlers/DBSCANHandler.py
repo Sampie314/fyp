@@ -103,10 +103,12 @@ class DBSCANHandler(AbstractClusterHandler):
 
         # Find optimal parameters if not provided
         if self.eps is None or self.min_samples is None:
-            self.eps, self.min_samples = self._find_optimal_parameters(spl)
+            eps, min_samples = self._find_optimal_parameters(spl)
+        else:
+            eps, min_samples = self.eps, self.min_samples
 
         # Perform DBSCAN clustering
-        dbscan = DBSCAN(eps=self.eps, min_samples=self.min_samples)
+        dbscan = DBSCAN(eps=eps, min_samples=min_samples)
         cls1 = dbscan.fit_predict(spl)
 
         # Handle noise points (labeled as -1 by DBSCAN)
