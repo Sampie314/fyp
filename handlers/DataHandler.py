@@ -129,7 +129,7 @@ class DataHandler:
         y = pd.DataFrame()
 
         for i in range(num_horizons):
-            y[f"y_log_return_{i}"] = DataHandler.log_return(df, days=i+1, delay=-i)
+            y[f"y_log_return_{i}"] = DataHandler.target_log_return(df, i+1)
         
         for i in range(num_horizons):
             df[f'daily_log_return_{i}'] = DataHandler.daily_log_return(df, i)
@@ -170,6 +170,10 @@ class DataHandler:
 
         return df, y
 
+    @staticmethod
+    def target_log_return(df, t):
+        return np.log(df['Close'].shift(-t) / df['Close'])
+    
     @staticmethod
     def daily_log_return(df, delay):
         return DataHandler.log_return(df, 1, delay)
