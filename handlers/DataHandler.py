@@ -91,8 +91,13 @@ class DataHandler:
         features = features.loc[common_index]
         targets = targets.loc[common_index]
 
+        # LOOK FORWARD CHECK
+        DataHandler._lookforward_bias_check(features, targets)
+        
         train_features, train_targets = features.loc[startTrain:endTrain], targets.loc[startTrain:endTrain]
         test_features, test_targets = features.loc[startTest:endTest], targets.loc[startTest:endTest]
+
+        
 
         return train_features, train_targets, test_features, test_targets
 
@@ -143,6 +148,11 @@ class DataHandler:
         df['mom_change_1m_3m'] = DataHandler.momentum_change(df, 21, 63)
         df['mom_change_3m_6m'] = DataHandler.momentum_change(df, 63, 126)
         df['mom_change_6m_12m'] = DataHandler.momentum_change(df, 126, 252)
+        df['returns_volatility_1m'] = DataHandler.returns_std(df, 21)
+        df['returns_volatility_3m'] = DataHandler.returns_std(df, 63)
+        df['close_cv_1m'] = DataHandler.coefficient_of_variation(df, 21)
+        df['close_cv_3m'] = DataHandler.coefficient_of_variation(df, 63)
+        
 
         # Handle NaN values in both df and y
         df.dropna(inplace=True)
@@ -201,3 +211,29 @@ class DataHandler:
     def notional_traded_change(df, days, delay=0):
         notional = DataHandler.notional_traded(df)
         return notional.pct_change(days).shift(delay)
+
+    @staticmethod
+    def coefficient_of_variation(df, days):
+        return  df['Close'].rolling(days).std() / df['Close'].rolling(days).mean()
+
+    @staticmethod
+    def returns_std(df, days):
+        return DataHandler.daily_log_return(df, 0).rolling(days).std()
+
+    @staticmethod
+    def _lookforward_bias_check(feature_df, target_df):
+        returns_cols1= ['daily_log_return_0',
+       'daily_log_return_1', 'daily_log_return_2', 'daily_log_return_3',
+       'daily_log_return_4', 'daily_log_return_5', 'daily_log_return_6',
+       'daily_log_return_7', 'daily_log_return_8', 'daily_log_return_9',
+       'daily_log_return_10', 'daily_log_return_11', 'daily_log_return_12']
+    
+        t_cols = ['y_log_return_0', 'y_log_return_1', 'y_log_return_2', 'y_log_return_3',
+               'y_log_return_4', 'y_log_return_5', 'y_log_return_6', 'y_log_return_7',
+               'y_log_return_8', 'y_log_return_9', 'y_log_return_10',
+               'y_log_return_11', 'y_log_return_12']
+
+        for r1 in returns_cols1:
+            for r2 in t_cols:
+                if (feature_df[r1] == target_df[r2]).all():
+                    raise Exception(f"Feature ColumnL: {r1} matches Target Column: {r2}!")
