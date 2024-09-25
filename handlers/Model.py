@@ -118,7 +118,13 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
             
             # Forward pass
             outputs = model(inputs)
-            loss = criterion(outputs, targets)
+
+            # Defuzzify
+            defuzzed_outputs = cls.deFuzzify(outputs.detach().cpu().numpy(), pred_col)
+            defuzzed_targets = cls.deFuzzify(targets.detach().cpu().numpy(), pred_col)
+            # loss = criterion(outputs, targets)
+            loss = criterion(defuzzed_outputs, defuzzed_targets)
+
             epoch_loss += loss.item()
 
             # Backward pass and optimization
