@@ -67,7 +67,7 @@ class TransformerModel(torch.nn.Module):
         return output
     
 def train_model(X, Y, X_test, Y_test, # fuzzified inputs
-                   Y_test_raw, # crisp value
+                Y_test_raw, # crisp value
                 cls, pred_col,
                    num_heads, feed_forward_dim, num_transformer_blocks, mlp_units, dropout_rate, 
                    learning_rate, num_mlp_layers, num_epochs, activation_function, batch_size):
@@ -120,10 +120,10 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
             outputs = model(inputs)
 
             # Defuzzify
-            defuzzed_outputs = cls.deFuzzify(outputs.detach().cpu().numpy(), pred_col)
-            defuzzed_targets = cls.deFuzzify(targets.detach().cpu().numpy(), pred_col)
-            # loss = criterion(outputs, targets)
-            loss = criterion(defuzzed_outputs, defuzzed_targets)
+            # defuzzed_outputs = torch.tensor(cls.deFuzzify(outputs.detach().cpu().numpy(), pred_col))
+            # defuzzed_targets = torch.tensor(cls.deFuzzify(targets.detach().cpu().numpy(), pred_col))
+            loss = criterion(outputs, targets)
+            # loss = criterion(defuzzed_outputs, defuzzed_targets)
 
             epoch_loss += loss.item()
 
@@ -143,9 +143,9 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
         if epoch % OUTPUT_FREQ == 0:
             # Compute R² score
             r2 = r2_score(all_targets, all_preds)
-            log_return_r2 = eval_model(model, x_test_padded, Y_test, Y_test_raw, cls, pred_col)
+            test_log_return_r2 = eval_model(model, x_test_padded, Y_test, Y_test_raw, cls, pred_col)
             
-            print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {epoch_loss / len(train_dataloader):.4f} | Train Cluster R² Score: {r2:.4f} | Test Log Return R² Score: {log_return_r2:.4f}')
+            print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {epoch_loss / len(train_dataloader):.4f} | Train Cluster R² Score: {r2:.4f} | Test Log Return R² Score: {test_log_return_r2:.4f}')
 
     # return all_preds, all_targets
 

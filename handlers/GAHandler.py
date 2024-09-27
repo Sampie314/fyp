@@ -146,6 +146,7 @@ def fitness(train_func: Callable, chromosome: Dict[str, Any], X: np.array, y: np
         activation_function=chromosome['activation_function'],
         batch_size=chromosome['batch_size']
     )
+    torch.cuda.empty_cache()
     return r2
 
 # def genetic_algorithm(train_func: Callable, X: np.array, y: np.array, t_X: np.array, t_y: np.array, crisp_t_y: Any, 
@@ -207,7 +208,7 @@ def evaluate_fitness(chromosome, train_func, X, y, t_X, t_y, crisp_t_y, cls, pre
 def to_tensor(x):
     return torch.from_numpy(x) if isinstance(x, np.ndarray) else x
     
-def genetic_algorithm(train_func: Callable, X: torch.Tensor, y: torch.Tensor, t_X: torch.Tensor, t_y: torch.Tensor, crisp_t_y: torch.Tensor, cls, pred_col,
+def genetic_algorithm(cpus: int, train_func: Callable, X: torch.Tensor, y: torch.Tensor, t_X: torch.Tensor, t_y: torch.Tensor, crisp_t_y: torch.Tensor, cls, pred_col,
                       initial_population_size: int = 50, final_population_size: int = 5, generations: int = 10, elite_size: int = 2) -> Tuple[Dict[str, Any], float]:
     """
     Perform the genetic algorithm to find the best hyperparameters with parallel chromosome evaluation.
@@ -238,8 +239,20 @@ def genetic_algorithm(train_func: Callable, X: torch.Tensor, y: torch.Tensor, t_
         logger.info(f"Generation {generation + 1}/{generations}")
         
         # Evaluate fitness in parallel
-        with mp.Pool(min(mp.cpu_count(), 10)) as pool:
-            fitness_scores = pool.map(partial(evaluate_fitness, train_func=train_func, X=X, y=y, t_X=t_X, t_y=t_y, crisp_t_y=crisp_t_y, cls=cls, pred_col=pred_col), population)
+        # with mp.Pool(min(mp.cpu_count(), cpus)) as pool:
+        #     fitness_scores = pool.map(partial(evaluate_fitness, train_func=train_func, X=X, y=y, t_X=t_X, t_y=t_y, crisp_t_y=crisp_t_y, cls=cls, pred_col=pred_col), population)
+
+        with mp.Pool(min(mp.cpu_count(), cpus)) as pool:
+            fitness_scores = []
+            for result in pool.imap_unordered(
+                partial(evaluate_fitness, train_func=train_func, X=X, y=y, t_X=t_X, t_y=t_y, crisp_t_y=crisp_t_y, cls=cls, pred_col=pred_col),
+                population
+            ):
+                fitness_scores.append(result)
+                print(len(fitness_scores))
+                # Clear CUDA cache after each evaluation
+                torch.cuda.empty_cache()
+
         
         fitness_scores.sort(key=lambda x: x[1], reverse=True)
         
