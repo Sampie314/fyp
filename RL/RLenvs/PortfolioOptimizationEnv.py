@@ -5,6 +5,7 @@ Main Changes:
 - Use SOTA gymnasium API instead of gym
 - Added save_asset_memory() to work with FinRL DRL_prediction()
 - Added save_action_memory() to work with FinRL DRL_prediction()
+- Change to _temporal_variation_df() to fix fragmentation issues
 """
 
 from __future__ import annotations
@@ -633,22 +634,24 @@ class PortfolioOptimizationEnv(gym.Env):
             Temporal variation dataframe.
         """
         df_temporal_variation = self.df.copy()
-        prev_columns = []
+        
+        # Create a dictionary to store new columns
+        new_columns = {}
+        
         for column in self._features:
             prev_column = f"prev_{column}"
-            prev_columns.append(prev_column)
-            df_temporal_variation[prev_column] = df_temporal_variation.groupby(
-                self._tic_column
-            )[column].shift(periods=periods)
-            df_temporal_variation[column] = (
-                df_temporal_variation[column] / df_temporal_variation[prev_column]
-            )
-        df_temporal_variation = (
-            df_temporal_variation.drop(columns=prev_columns)
-            .fillna(1)
-            .reset_index(drop=True)
-        )
+            new_columns[prev_column] = df_temporal_variation.groupby(self._tic_column)[column].shift(periods=periods)
+            new_columns[column] = df_temporal_variation[column] / new_columns[prev_column]
+        
+        # Add all new columns at once
+        df_temporal_variation = pd.concat([df_temporal_variation, pd.DataFrame(new_columns)], axis=1)
+        
+        # Drop unnecessary columns and reset index
+        columns_to_keep = [self._time_column, self._tic_column] + self._features
+        df_temporal_variation = df_temporal_variation[columns_to_keep].fillna(1).reset_index(drop=True)
+        
         return df_temporal_variation
+
 
     # def _seed(self, seed=None):
     #     """Seeds the sources of randomness of this environment to guarantee
