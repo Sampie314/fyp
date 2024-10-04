@@ -352,7 +352,18 @@ class PortfolioOptimizationEnv(gym.Env):
             self._asset_memory["initial"].append(self._portfolio_value)
 
             # time passes and time variation changes the portfolio distribution
-            portfolio = self._portfolio_value * (weights * self._price_variation)
+            try:
+                portfolio = self._portfolio_value * (weights * self._price_variation)
+            except:
+                print(f"Shape of weights: {weights.shape}")
+                print(f"Shape of self._price_variation: {self._price_variation.shape}")
+                print(self._price_variation)
+                print(f"Number of assets in portfolio: {self.portfolio_size}")
+                print(f"Number of unique tickers: {len(self._tic_list)}")
+                print(self._state, self._info)
+                print(self._time_index)
+                raise Exception
+
 
             # calculate new portfolio value and weights
             self._portfolio_value = np.sum(portfolio)
@@ -472,7 +483,13 @@ class PortfolioOptimizationEnv(gym.Env):
             tic_data = self._data[self._data[self._tic_column] == tic]
             tic_data = tic_data[self._features].to_numpy().T
             tic_data = tic_data[..., np.newaxis]
-            state = tic_data if state is None else np.append(state, tic_data, axis=2)
+            try:
+                state = tic_data if state is None else np.append(state, tic_data, axis=2)
+            except:
+                print(tic)
+                print('state', state)
+                print('tic_data', tic_data)
+                raise Exception
         state = state.transpose((0, 2, 1))
         info = {
             "tics": self._tic_list,
