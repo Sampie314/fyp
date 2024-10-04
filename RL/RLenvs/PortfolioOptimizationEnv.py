@@ -710,7 +710,7 @@ class PortfolioOptimizationEnv(gym.Env):
 
         action_list = self._actions_memory
         df_actions = pd.DataFrame(action_list)
-        df_actions.columns = ['cash'] + self._tic_list
+        df_actions.columns = ['cash'] + list(self._tic_list)
         df_actions.index = df_date.date
         # df_actions = pd.DataFrame({'date':date_list,'actions':action_list})
         return df_actions
