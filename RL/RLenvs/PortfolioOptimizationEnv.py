@@ -653,19 +653,15 @@ class PortfolioOptimizationEnv(gym.Env):
         df_temporal_variation = self.df.copy()
         
         # Create a dictionary to store new columns
-        new_columns = {}
+        prev_columns = {}
         
         for column in self._features:
             prev_column = f"prev_{column}"
-            new_columns[prev_column] = df_temporal_variation.groupby(self._tic_column)[column].shift(periods=periods)
-            new_columns[column] = df_temporal_variation[column] / new_columns[prev_column]
-        
-        # Add all new columns at once
-        df_temporal_variation = pd.concat([df_temporal_variation, pd.DataFrame(new_columns)], axis=1)
+            prev_columns[prev_column] = df_temporal_variation.groupby(self._tic_column)[column].shift(periods=periods)
+            df_temporal_variation[column] = df_temporal_variation[column] / prev_columns[prev_column]
         
         # Drop unnecessary columns and reset index
-        columns_to_keep = [self._time_column, self._tic_column] + self._features
-        df_temporal_variation = df_temporal_variation[columns_to_keep].fillna(1).reset_index(drop=True)
+        df_temporal_variation = df_temporal_variation.fillna(1).reset_index(drop=True)
         
         return df_temporal_variation
 
