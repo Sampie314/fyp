@@ -31,6 +31,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.env_util import make_vec_env
+
 from pathlib import Path
 
 try:
@@ -658,20 +659,6 @@ class PortfolioOptimizationEnv(gym.Env):
         df_temporal_variation = df_temporal_variation.fillna(1).reset_index(drop=True)
         
         return df_temporal_variation
-
-
-    # def _seed(self, seed=None):
-    #     """Seeds the sources of randomness of this environment to guarantee
-    #     reproducibility.
-
-    #     Args:
-    #         seed: Seed value to be applied.
-
-    #     Returns:
-    #         Seed value applied.
-    #     """
-    #     self.np_random, seed = seeding.np_random(seed)
-    #     return [seed]
 
     def get_sb_env(self, env_number=1):
         """Generates an environment compatible with Stable Baselines 3. The
