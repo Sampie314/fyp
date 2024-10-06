@@ -6,6 +6,7 @@ Main Changes:
 - Added save_asset_memory() to work with FinRL DRL_prediction()
 - Added save_action_memory() to work with FinRL DRL_prediction()
 - Change to _temporal_variation_df() to fix fragmentation issues
+- Comply with new gymnasium api
 """
 
 from __future__ import annotations
@@ -28,7 +29,8 @@ from gymnasium.utils import seeding
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines3.common.env_util import make_vec_env
 from pathlib import Path
 
 try:
@@ -103,7 +105,6 @@ class PortfolioOptimizationEnv(gym.Env):
         tics_in_portfolio="all",
         time_window=1,
         cwd="./",
-        new_gym_api=False,
     ):
         """Initializes environment's instance.
 
@@ -152,7 +153,6 @@ class PortfolioOptimizationEnv(gym.Env):
         self._features = features
         self._valuation_feature = valuation_feature
         self._cwd = Path(cwd)
-        self._new_gym_api = new_gym_api
 
         # results file
         self._results_file = self._cwd / "results" / "rl"
@@ -293,10 +293,8 @@ class PortfolioOptimizationEnv(gym.Env):
                 show=False,
                 savefig=self._results_file / "portfolio_summary.png",
             )
-
-            if self._new_gym_api:
-                return self._state, self._reward, self._terminal, False, self._info
-            return self._state, self._reward, self._terminal, self._info
+            
+            return self._state, self._reward, self._terminal, False, self._info
 
         else:
             # transform action to numpy array (if it's a list)
@@ -391,9 +389,7 @@ class PortfolioOptimizationEnv(gym.Env):
             self._reward = portfolio_reward
             self._reward = self._reward * self._reward_scaling
 
-        if self._new_gym_api:
-            return self._state, self._reward, self._terminal, False, self._info
-        return self._state, self._reward, self._terminal, self._info
+        return self._state, self._reward, self._terminal, False, self._info
 
     def reset(self, seed: int = None):
         """Resets the environment and returns it to its initial state (the
@@ -426,9 +422,7 @@ class PortfolioOptimizationEnv(gym.Env):
         self._portfolio_value = self._initial_amount
         self._terminal = False
 
-        if self._new_gym_api:
-            return self._state, self._info
-        return self._state
+        return self._state, self._info
 
     def _get_state_and_info_from_time_index(self, time_index):
         """Gets state and information given a time index. It also updates "data"
@@ -686,7 +680,7 @@ class PortfolioOptimizationEnv(gym.Env):
         Returns:
             A tuple with the generated environment and an initial observation.
         """
-        e = DummyVecEnv([lambda: self] * env_number)
+        e = DummyVecEnv([lambda: self])
         obs = e.reset()
         return e, obs
     
