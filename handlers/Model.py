@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import r2_score
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from . import Utils
+import gc
 
 class TransformerModel(torch.nn.Module):
     def __init__(self, input_dim, output_dim, num_heads=10, ff_dim=32, num_transformer_blocks=4, mlp_units=256, dropout=0.25, noHiddenLayers=1, sigmoidOrSoftmax=0):
@@ -72,7 +73,7 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
                    num_heads, feed_forward_dim, num_transformer_blocks, mlp_units, dropout_rate, 
                    learning_rate, num_mlp_layers, num_epochs, activation_function, batch_size):
 
-    OUTPUT_FREQ = 50
+    OUTPUT_FREQ = 200
     # Detect GPU availability
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on {device}")
@@ -89,6 +90,7 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
         num_transformer_blocks=num_transformer_blocks, 
         mlp_units=mlp_units, 
         dropout=dropout_rate, 
+        noHiddenLayers = num_mlp_layers,
         sigmoidOrSoftmax=activation_function
     ).double()
 
@@ -102,7 +104,7 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
     # Create DataLoader for training
     assert x_padded.shape[0] == Y.shape[0]
     train_dataset = TensorDataset(torch.from_numpy(x_padded), torch.from_numpy(Y))
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
     # Training loop
     for epoch in range(num_epochs):
@@ -118,13 +120,7 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
             
             # Forward pass
             outputs = model(inputs)
-
-            # Defuzzify
-            # defuzzed_outputs = torch.tensor(cls.deFuzzify(outputs.detach().cpu().numpy(), pred_col))
-            # defuzzed_targets = torch.tensor(cls.deFuzzify(targets.detach().cpu().numpy(), pred_col))
             loss = criterion(outputs, targets)
-            # loss = criterion(defuzzed_outputs, defuzzed_targets)
-
             epoch_loss += loss.item()
 
             # Backward pass and optimization
@@ -151,7 +147,7 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
 
     # Evaluate on test data
     test_dataset = TensorDataset(torch.from_numpy(x_test_padded), torch.from_numpy(Y_test))
-    test_dataloader = DataLoader(test_dataset, batch_size=512*4, shuffle=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=512*4, shuffle=False, num_workers=4, pin_memory=True)
 
     model.eval()
     pred_list = []
@@ -176,6 +172,10 @@ def train_model(X, Y, X_test, Y_test, # fuzzified inputs
     
     r2_score_value = r2_score(Y_test_raw, pred_log_returns)
     print("Test R2 Score:", r2_score_value)
+    
+    # if torch.cuda.is_available():
+    #     torch.cuda.empty_cache()
+    # gc.collect()
 
     return model, r2_score_value, pred
 
@@ -191,7 +191,7 @@ def eval_model(model, X: np.array, Y: np.array, Y_crisp: np.array, cls, pred_col
     pred_list = []
 
     test_dataset = TensorDataset(torch.from_numpy(X), torch.from_numpy(Y))
-    test_dataloader = DataLoader(test_dataset, batch_size=512*4, shuffle=False)
+    test_dataloader = DataLoader(test_dataset, batch_size=512*4, shuffle=False, num_workers=4, pin_memory=True)
     
     with torch.no_grad():
         for inputs, _ in test_dataloader:

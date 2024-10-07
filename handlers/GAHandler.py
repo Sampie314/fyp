@@ -116,39 +116,6 @@ def mutation(chromosome: Dict[str, Any], mutation_rate: float = 0.1) -> Dict[str
             chromosome[key] = random.choice(parameters[key])
     return chromosome
 
-def fitness(train_func: Callable, chromosome: Dict[str, Any], X: np.array, y: np.array, t_X: np.array, t_y: np.array, crisp_t_y: np.array, cls, pred_col) -> float:
-    """
-    Calculate the fitness of a chromosome using the provided training function.
-
-    Args:
-        train_func (Callable): The training function to evaluate the chromosome.
-        chromosome (Dict[str, Any]): The chromosome to evaluate.
-        X, y, t_X, t_y, crisp_t_y: Data for training and evaluation.
-
-    Returns:
-        float: The fitness score (R2 score) of the chromosome.
-    """
-    # Set a fixed seed for reproducibility
-    torch.manual_seed(0)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(0)
-
-    model, r2, pred = train_func(
-        X, y, t_X, t_y, crisp_t_y, cls, pred_col,
-        num_heads=chromosome['num_heads'],
-        feed_forward_dim=chromosome['feed_forward_dim'],
-        num_transformer_blocks=chromosome['num_transformer_blocks'],
-        mlp_units=chromosome['mlp_units'],
-        dropout_rate=chromosome['dropout_rate'],
-        learning_rate=chromosome['learning_rate'],
-        num_mlp_layers=chromosome['num_mlp_layers'],
-        num_epochs=chromosome['num_epochs'],
-        activation_function=chromosome['activation_function'],
-        batch_size=chromosome['batch_size']
-    )
-    torch.cuda.empty_cache()
-    return r2
-
 # def genetic_algorithm(train_func: Callable, X: np.array, y: np.array, t_X: np.array, t_y: np.array, crisp_t_y: Any, 
 #                       initial_population_size: int = 50, final_population_size: int = 5, generations: int = 10, elite_size: int = 2) -> Tuple[Dict[str, Any], float]:
 #     """
@@ -200,13 +167,33 @@ def calculate_population_size(initial_population_size: int, final_population_siz
     """Calculate the population size for a given generation."""
     return int(initial_population_size - (initial_population_size - final_population_size) * (generation / (generations - 1)))
 
-def evaluate_fitness(chromosome, train_func, X, y, t_X, t_y, crisp_t_y, cls, pred_col):
-    """Evaluate the fitness of a single chromosome."""
-    return chromosome, fitness(train_func, chromosome, X, y, t_X, t_y, crisp_t_y, cls, pred_col)
+def fitness(chromosome: Dict[str, Any], train_func: Callable, X: np.array, y: np.array, t_X: np.array, t_y: np.array, crisp_t_y: np.array, cls, pred_col) -> float:
+    """
+    Calculate the fitness of a chromosome using the provided training function.
 
-# Convert inputs to PyTorch tensors if they're NumPy arrays
-def to_tensor(x):
-    return torch.from_numpy(x) if isinstance(x, np.ndarray) else x
+    Args:
+        train_func (Callable): The training function to evaluate the chromosome.
+        chromosome (Dict[str, Any]): The chromosome to evaluate.
+        X, y, t_X, t_y, crisp_t_y: NumPy arrays for training and evaluation.
+
+    Returns:
+        float: The fitness score (R2 score) of the chromosome.
+    """
+    model, r2, pred = train_func(
+        X, y, t_X, t_y, crisp_t_y, cls, pred_col,
+        num_heads=chromosome['num_heads'],
+        feed_forward_dim=chromosome['feed_forward_dim'],
+        num_transformer_blocks=chromosome['num_transformer_blocks'],
+        mlp_units=chromosome['mlp_units'],
+        dropout_rate=chromosome['dropout_rate'],
+        learning_rate=chromosome['learning_rate'],
+        num_mlp_layers=chromosome['num_mlp_layers'],
+        num_epochs=chromosome['num_epochs'],
+        activation_function=chromosome['activation_function'],
+        batch_size=chromosome['batch_size']
+    )
+    return r2
+
     
 def genetic_algorithm(cpus: int, train_func: Callable, X: torch.Tensor, y: torch.Tensor, t_X: torch.Tensor, t_y: torch.Tensor, crisp_t_y: torch.Tensor, cls, pred_col,
                       initial_population_size: int = 50, final_population_size: int = 5, generations: int = 10, elite_size: int = 2) -> Tuple[Dict[str, Any], float]:
@@ -238,22 +225,18 @@ def genetic_algorithm(cpus: int, train_func: Callable, X: torch.Tensor, y: torch
     for generation in range(generations):
         logger.info(f"Generation {generation + 1}/{generations}")
         
-        # Evaluate fitness in parallel
-        # with mp.Pool(min(mp.cpu_count(), cpus)) as pool:
-        #     fitness_scores = pool.map(partial(evaluate_fitness, train_func=train_func, X=X, y=y, t_X=t_X, t_y=t_y, crisp_t_y=crisp_t_y, cls=cls, pred_col=pred_col), population)
+        if cpus > 1:
+            with mp.Pool(min(mp.cpu_count(), cpus)) as pool:
+                fitness_scores = pool.map(partial(fitness, train_func=train_func, X=X, y=y, t_X=t_X, t_y=t_y, crisp_t_y=crisp_t_y, cls=cls, pred_col=pred_col), population)
+        else:
+            fitness_scores = [(chromosome, fitness(chromosome, train_func, X, y, t_X, t_y, crisp_t_y, cls, pred_col)) for chromosome in population]
 
-        with mp.Pool(min(mp.cpu_count(), cpus)) as pool:
-            fitness_scores = []
-            for result in pool.imap_unordered(
-                partial(evaluate_fitness, train_func=train_func, X=X, y=y, t_X=t_X, t_y=t_y, crisp_t_y=crisp_t_y, cls=cls, pred_col=pred_col),
-                population
-            ):
-                fitness_scores.append(result)
-                print(len(fitness_scores))
-                # Clear CUDA cache after each evaluation
-                torch.cuda.empty_cache()
-
+        fitness_scores = [score for score in fitness_scores if score[1] != float('-inf')]
         
+        if not fitness_scores:
+            logger.error("All fitness evaluations failed. Terminating algorithm.")
+            return None, float('-inf')
+
         fitness_scores.sort(key=lambda x: x[1], reverse=True)
         
         # Select elite
