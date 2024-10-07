@@ -278,8 +278,19 @@ class LSPortfolioOptimizationEnv(gym.Env):
             self._asset_memory["initial"].append(self._portfolio_value)
 
             # time passes and time variation changes the portfolio distribution
+            # print('weight', weights)
+            # print('price variation', self._price_variation)
+
+            recalc_price_variations = []
+            for w, r in zip(weights, self._price_variation):
+                if w < 0: r = 2 - r
+                recalc_price_variations.append(r)
+            recalc_price_variations = np.array(recalc_price_variations)
+            # print('recalc_price_variations', recalc_price_variations)
+                
             try:
-                portfolio = self._portfolio_value * (weights * self._price_variation)
+                # portfolio = self._portfolio_value * (weights * self._price_variation)
+                portfolio = self._portfolio_value * (np.abs(weights) * recalc_price_variations)
             except:
                 print(f"Shape of weights: {weights.shape}")
                 print(f"Shape of self._price_variation: {self._price_variation.shape}")
@@ -293,6 +304,7 @@ class LSPortfolioOptimizationEnv(gym.Env):
 
             # calculate new portfolio value and weights
             self._portfolio_value = np.sum(portfolio)
+            # print('Portfolio Value', self._portfolio_value)
             weights = portfolio / self._portfolio_value
 
             # save final portfolio value and weights of this time step
@@ -306,6 +318,9 @@ class LSPortfolioOptimizationEnv(gym.Env):
             rate_of_return = (
                 self._asset_memory["final"][-1] / self._asset_memory["final"][-2]
             )
+            # print(f"Rate of return: {rate_of_return}")
+            # print(f"Today: {self._asset_memory["final"][-1]}")
+            # print(f"Ystd: {self._asset_memory["final"][-2]}")
             portfolio_return = rate_of_return - 1
             portfolio_reward = np.log(rate_of_return)
 
@@ -316,6 +331,8 @@ class LSPortfolioOptimizationEnv(gym.Env):
             # Define portfolio return
             self._reward = portfolio_reward
             self._reward = self._reward * self._reward_scaling
+
+            if self._portfolio_value < 0: self._terminal = True
 
         return self._state, self._reward, self._terminal, False, self._info
 
@@ -440,29 +457,21 @@ class LSPortfolioOptimizationEnv(gym.Env):
         
         # Normalize so that sum of absolute weights is 1
         abs_sum = np.sum(np.abs(actions))
-        if abs_sum > 0:
+        if abs_sum > 1e-8:
             actions = actions / abs_sum
-        
+            
         return actions
 
-    def _softmax_normalization(self, actions):
-        """Normalizes the action vector using softmax function.
+    # def _softmax_normalization(self, actions):
+    #     """Normalizes the action vector using softmax function.
 
-        Returns:
-            Normalized action vector (portfolio vector).
-        """
-        numerator = np.exp(actions)
-        denominator = np.sum(np.exp(actions))
-        softmax_output = numerator / denominator
+    #     Returns:
+    #         Normalized action vector (portfolio vector).
+    #     """
+    #     numerator = np.exp(actions)
+    #     denominator = np.sum(np.exp(actions))
+    #     softmax_output = numerator / denominator
         return softmax_output
-
-    def enumerate_portfolio(self):
-        """Enumerates the current porfolio by showing the ticker symbols
-        of all the investments considered in the portfolio.
-        """
-        print("Index: 0. Tic: Cash")
-        for index, tic in enumerate(self._tic_list):
-            print(f"Index: {index + 1}. Tic: {tic}")
 
     def _preprocess_data(self, order, normalize, tics_in_portfolio):
         """Orders and normalizes the environment's dataframe.
@@ -514,10 +523,13 @@ class LSPortfolioOptimizationEnv(gym.Env):
         self._portfolio_reward_memory = [0]
         # initial action:
         self._actions_memory = [
+            # np.array([1] + [0] * (self.portfolio_size - 1), dtype=np.float32)
             np.array([0] * self.portfolio_size, dtype=np.float32)
+            
         ]
         # memorize portfolio weights at the ending of time step
         self._final_weights = [
+            # np.array([1] + [0] * (self.portfolio_size - 1), dtype=np.float32)
             np.array([0] * self.portfolio_size, dtype=np.float32)
         ]
         # memorize datetimes
