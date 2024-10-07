@@ -114,7 +114,7 @@ def calculate_ideal_rsi(df, period=14) -> pd.DataFrame:
     ret = calculate_rsi(df.shift(-y_horizon), period)
     return ret.rename(columns={'RSI': 'Ideal_RSI'})
 
-def calculate_predicted_rsi(df, predictions_df, period=14):
+def calculate_predicted_rsi(df, predictions_df, period=28):
     """
     Calculate the RSI (Relative Strength Index) using actual and predicted close prices for a given stock.
     
@@ -143,6 +143,8 @@ def calculate_predicted_rsi(df, predictions_df, period=14):
 
         # Combine historical closes with future predictions
         combined_series = pd.Series(list(historical_prices) + list(future_predictions))
+        if len(combined_series) > period:
+            combined_series = combined_series.iloc[-period:].reset_index(drop=True)
 
         # Calculate the changes in the combined series
         delta = combined_series.diff()
@@ -292,3 +294,63 @@ def calculate_stochastic_oscillator(df, period=14):
 def calculate_ideal_stochastic_oscillator(df, period=14):
     ret = calculate_stochastic_oscillator(df.shift(-y_horizon), period)
     return ret.rename(columns={'Stochastic_Oscillator': 'Ideal_Stochastic_Oscillator'})
+
+def calculate_predicted_stochastic(df, predictions_df, period=14):
+    """
+    Calculate the Stochastic Oscillator (%K and %D) using actual and predicted close prices for a given stock.
+
+    Parameters:
+    df (pd.DataFrame): DataFrame containing the actual close prices with a 'Close' column.
+    predictions_df (pd.DataFrame): DataFrame containing predicted close prices for up to 13 days ahead.
+    k_period (int): The lookback period for calculating the %K line (default is 14).
+    d_period (int): The period for calculating the %D (smoothed %K) line (default is 3).
+
+    Returns:
+    pd.DataFrame: DataFrame containing the calculated %K and %D values based on actual and predicted data.
+    """
+    results = {
+        'Date': [],
+        'Predicted_Stochastic_Oscillator': [],
+    }
+
+    for date in df.index:
+        # Retrieve historical close prices up to the current date
+        historical_prices = df.loc[:date, 'Close']
+        
+        # Retrieve future predictions for the current date
+        if date in predictions_df.index:
+            future_predictions = predictions_df.loc[date].values
+        else:
+            future_predictions = []
+
+        # Combine historical closes with future predictions
+        combined_series = pd.Series(list(historical_prices) + list(future_predictions))
+
+        combined_series = combined_series
+        if len(combined_series) > period:
+            combined_series = combined_series.iloc[-period:].reset_index(drop=True)
+
+        # Get the period window size
+        window = min(period, len(combined_series))
+
+        # Calculate the highest high and lowest low over the lookback period
+        highest_high = combined_series[-window:].max()
+        lowest_low = combined_series[-window:].min()
+
+        # Calculate the current close (last value in the combined series)
+        current_close = combined_series.iloc[-1]
+
+        # Calculate %K
+        if highest_high == lowest_low:
+            percent_k = 0  # Avoid division by zero
+        else:
+            percent_k = 100 * (current_close - lowest_low) / (highest_high - lowest_low)
+
+        # Store the results
+        results['Date'].append(date)
+        results['Predicted_Stochastic_Oscillator'].append(percent_k)
+
+    # Convert results into a DataFrame
+    results = pd.DataFrame(results).set_index('Date')
+
+    return results
