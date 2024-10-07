@@ -6,3 +6,20 @@ def reindex(df: pd.DataFrame, date_col: str = 'Date', ticker_col:str = 'symbol')
     df = df.sort_values([ticker_col, date_col], ignore_index=True)
     df.index = df[date_col].factorize()[0]
     return df
+
+def create_actions_df(env) -> pd.DataFrame:
+    actions_df = pd.DataFrame(env._actions_memory)
+    actions_df.columns = ['cash'] + list(env._tic_list)
+    actions_df.index = env._date_memory
+    return actions_df
+
+def create_metrics_df(env) -> pd.DataFrame:
+    metrics_df = pd.DataFrame(
+                {
+                    "date": env._date_memory,
+                    "returns": env._portfolio_return_memory,
+                    "rewards": env._portfolio_reward_memory,
+                    "portfolio_values": env._asset_memory["final"],
+                }
+                )
+    return metrics_df.set_index('date')
