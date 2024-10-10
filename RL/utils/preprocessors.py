@@ -7,9 +7,13 @@ def reindex(df: pd.DataFrame, date_col: str = 'Date', ticker_col:str = 'symbol')
     df.index = df[date_col].factorize()[0]
     return df
 
-def create_actions_df(env) -> pd.DataFrame:
+def create_actions_df(env, cash=True) -> pd.DataFrame:
     actions_df = pd.DataFrame(env._actions_memory)
-    actions_df.columns = ['cash'] + list(env._tic_list)
+    if cash:
+        actions_df.columns = ['cash'] + list(env._tic_list)
+    else:
+        actions_df.columns = list(env._tic_list)
+        
     actions_df.index = env._date_memory
     return actions_df
 
