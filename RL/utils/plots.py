@@ -35,7 +35,14 @@ def plot_actions(df:pd.DataFrame) -> go.Figure:
         xaxis_title='Date',
         yaxis_title='Weight',
         legend_title='Constituents',
-        hovermode='x unified'
+        hovermode='x unified',
+        
+        width=1400,   # Set the width of the figure
+        height=800,  # Set the height of the figure
+        # plot_bgcolor='white',  # Set plot background to white
+        # xaxis=dict(showline=True, linewidth=2, linecolor='black'),
+        # yaxis=dict(showline=True, linewidth=2, linecolor='black')
+        
     )
 
     return fig
