@@ -37,8 +37,8 @@ def plot_actions(df:pd.DataFrame) -> go.Figure:
         legend_title='Constituents',
         hovermode='x unified',
         
-        width=1400,   # Set the width of the figure
-        height=800,  # Set the height of the figure
+        width=1000,   # Set the width of the figure
+        height=500,  # Set the height of the figure
         # plot_bgcolor='white',  # Set plot background to white
         # xaxis=dict(showline=True, linewidth=2, linecolor='black'),
         # yaxis=dict(showline=True, linewidth=2, linecolor='black')

@@ -83,38 +83,71 @@ class AbstractClusterHandler(ABC):
         """Calculate Gaussian membership."""
         return np.exp(-((x - sampleMean)**2 / (2 * (max(sampleDevi, 1e-6)**2))))
 
+    # @staticmethod
+    # def clusterGraph(cluster_stats: dict):
+    #     """Generate cluster distribution graphs."""
+
+    #     means = [stats['mean'] for stats in cluster_stats.values()]
+    #     stds = [stats['std'] for stats in cluster_stats.values()]
+    #     x_min = min(means) - 3 * max(stds)
+    #     x_max = max(means) + 3 * max(stds)
+    #     x = np.linspace(x_min, x_max, 1000)
+
+    #     def gaussian(x, mean, std):
+    #         return (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
+        
+    #     # Create traces for each cluster
+    #     fig = go.Figure()
+
+    #     for cluster, stats in cluster_stats.items():
+    #         y = gaussian(x, stats['mean'], stats['std'])
+    #         fig.add_trace(go.Scatter(x=x, y=y, mode='lines', name=f'Cluster {cluster}'))
+
+    #     # Update layout for better visualization
+    #     fig.update_layout(
+    #         title="Gaussian Distributions for Clusters",
+    #         xaxis_title="Value",
+    #         yaxis_title="Density",
+    #         showlegend=True
+    #     )
+        
+    #     # Show the figure
+    #     fig.show()
+
+    #     return fig
+
     @staticmethod
     def clusterGraph(cluster_stats: dict):
-        """Generate cluster distribution graphs."""
-
+        """Generate cluster distribution graphs with normalized peaks."""
+    
         means = [stats['mean'] for stats in cluster_stats.values()]
         stds = [stats['std'] for stats in cluster_stats.values()]
         x_min = min(means) - 3 * max(stds)
         x_max = max(means) + 3 * max(stds)
         x = np.linspace(x_min, x_max, 1000)
-
+    
         def gaussian(x, mean, std):
-            return (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
-        
+            # Multiply by std * sqrt(2 * pi) to normalize the peak at y = 1
+            return np.exp(-0.5 * ((x - mean) / std) ** 2)
+    
         # Create traces for each cluster
         fig = go.Figure()
-
+    
         for cluster, stats in cluster_stats.items():
             y = gaussian(x, stats['mean'], stats['std'])
             fig.add_trace(go.Scatter(x=x, y=y, mode='lines', name=f'Cluster {cluster}'))
-
+            
+    
         # Update layout for better visualization
         fig.update_layout(
-            title="Gaussian Distributions for Clusters",
+            title="Fuzzy Set Distribution",
             xaxis_title="Value",
-            yaxis_title="Density",
+            yaxis_title="Membership Value",
             showlegend=True
         )
         
-        # Show the figure
-        fig.show()
-
         return fig
+
 
     def deFuzzify(self, pred: np.array, target_col: str) -> np.array:
         """
